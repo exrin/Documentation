@@ -80,8 +80,8 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
 
 .. sourcecode:: csharp
 
-	public class NavigationContainer : INavigationPage
-	{
+    public class NavigationContainer : INavigationPage
+    {
 
         private readonly NavigationPage _page = null;
         public event EventHandler<IPageNavigationArgs> OnPopped;
@@ -192,16 +192,10 @@ In the MVVM pattern, Models are there to host the business logic, data gathering
 
     public class BaseModel: Exrin.Framework.Model
     {
-	    //TODO: Revise for new version - auto setup Execution
-        public BaseModel()
-        {
-            Execution = new ModelExecution()
-            {
-                HandleTimeout = ()=> { return Task.FromResult(0); },
-                HandleUnhandledException = (exception) => { return Task.FromResult(true); }
-            };
+        public BaseModel(IDisplayService displayService, IErrorHandlingService errorHandlingService)
+            :base(displayService, errorHandlingService)
+        {           
         }
-
     }
 
 
@@ -313,9 +307,75 @@ From here we are finally at a point where we will put our line of code in the Ap
         new Bootstrapper().Init().Get<IStackRunner>().Run(Mobile.Stacks.Authentication);
     }
 	
+IViewModelExecute
+=================
 
+In order to add functionality to your ViewModel, Exrin requires that you use the IViewModelExecute for any Commands. As in the example below you will see the command for when a key is pressed on the Pin Screen in our sample app. It contains nothing more than glue code to connect to the appropriate IViewModelExecute.
 
- - IViewModelExecute
+.. sourcecode:: csharp
 
- - IModelExecute
+    private IRelayCommand _keyPressCommand = null;
+    public IRelayCommand KeyPressCommand
+    {
+        get
+        {
+            return _keyPressCommand ??
+                    (Execution.ViewModelExecute(new PinLoginViewModelExecute(Model, Keypad.BackCharacter)));
+        }
+    }
 
+You need to create the class PinLoginViewModelExecute, which houses the numerous operations and timeout setting for the operations.
+
+.. sourcecode:: csharp
+
+    public class PinLoginViewModelExecute : BaseViewModelExecute 
+    {
+        public PinLoginViewModelExecute(IPinModel model, string backCharacter)
+        {
+            TimeoutMilliseconds = 10000;
+            Operations.Add(new PinLoginOperation(model, backCharacter));
+        }
+    }
+
+Next you need to create an IOperation to add to the operations lists. This allows you define the Operation and optional rollback function.
+
+IModelExecute
+=============
+
+Exrin optionally allows you to wrap each model function in an IModelExecute to handle model wide the Timeout and Error handling.
+
+.. sourcecode:: csharp
+
+    public Task<bool> IsPinValid()
+	{
+		return Execution.ModelExecute(new IsPinValidModelExecute(Pin));
+	}
+
+Next you need to create your ModelExecute class that inherits from : IModelExecute<T> with T being the return type of the function. Then define the operation as per the example below.
+
+.. sourcecode:: csharp
+
+    public IOperation<bool> Operation
+    {
+        get
+        {
+            return new Operation<bool>()
+            {
+                Function = () =>
+                {
+                    if (_pin.Length == 4)
+                        return Task.FromResult(true);
+                    else
+                        return Task.FromResult(false);
+                }
+            };
+        }
+    }
+
+Nesting Files
+=============
+Due to the need for more classes than usual with this approach it is recommended you nest your files using Visual Studio's DependantUpon tag. Because Visual Studio doesn't have an inbuilt way to manage this, using the extension () is recommended.
+
+Summary
+=======
+Be sure to look at Unit Testing next to see the benefits of the IViewModelExecute and IModelExecute setup.
