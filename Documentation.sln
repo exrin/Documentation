@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{90A049A1-1CB3-40DB-8B51-151911BD02F3}"
+	ProjectSection(SolutionItems) = preProject
+		exrin_128.png = exrin_128.png
+		index.rst = index.rst
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "getting-started", "getting-started", "{E8BF3A9B-A46E-46A6-B874-77A8987BECA9}"
+	ProjectSection(SolutionItems) = preProject
+		getting-started\index.rst = getting-started\index.rst
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
