@@ -1,2 +1,2 @@
-# documentation
-Exrin Documentation
+# Documentation
+ReadTheDocs.org documentation for Exrin
