@@ -81,7 +81,7 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
 .. sourcecode:: csharp
 
 	public class NavigationContainer : INavigationPage
-    {
+	{
 
         private readonly NavigationPage _page = null;
         public event EventHandler<IPageNavigationArgs> OnPopped;
@@ -192,7 +192,7 @@ In the MVVM pattern, Models are there to host the business logic, data gathering
 
     public class BaseModel: Exrin.Framework.Model
     {
-		//TODO: Revise for new version - auto setup Execution
+	    //TODO: Revise for new version - auto setup Execution
         public BaseModel()
         {
             Execution = new ModelExecution()
@@ -214,7 +214,7 @@ Setting up a base View Model is recommended and it will need to have some object
 
 .. sourcecode:: csharp
 	
-	public class BaseViewModel : Exrin.Framework.ViewModel
+    public class BaseViewModel : Exrin.Framework.ViewModel
     {        
         public BaseViewModel(IDisplayService displayService, INavigationService navigationService, 
             IErrorHandlingService errorHandlingService, IStackRunner stackRunner)
@@ -267,7 +267,7 @@ At this point we also need to create an enum of the Stacks we are creating to en
 
 .. sourcecode:: csharp
 
-	public enum Stacks
+    public enum Stacks
     {
         Authentication = 0,
         Main = 1
@@ -308,7 +308,7 @@ From here we are finally at a point where we will put our line of code in the Ap
 
 .. sourcecode:: csharp
 
-	public App()
+    public App()
     {
         new Bootstrapper().Init().Get<IStackRunner>().Run(Mobile.Stacks.Authentication);
     }
