@@ -374,9 +374,7 @@ Next you need to create your ModelExecute class that inherits from : IModelExecu
 
 Nesting Files
 -------------
-Due to the need for more classes than usual with this approach it is recommended you nest your files using Visual Studio's DependantUpon tag. Because Visual Studio doesn't have an inbuilt way to manage this, using the extension Nesting_ is recommended.
-
--- _Nesting: https://visualstudiogallery.msdn.microsoft.com/3ebde8fb-26d8-4374-a0eb-1e4e2665070c
+Due to the need for more classes than usual with this approach it is recommended you nest your files using Visual Studio's DependantUpon tag. Because Visual Studio doesn't have an inbuilt way to manage this, using the extension 'File Nesting <https://visualstudiogallery.msdn.microsoft.com/3ebde8fb-26d8-4374-a0eb-1e4e2665070c>'_ is recommended.
 
 Summary
 -------
