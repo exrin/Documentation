@@ -20,6 +20,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "unit-testing", "unit-testin
 		unit-testing\index.rst = unit-testing\index.rst
 	EndProjectSection
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "faq", "faq", "{5756DF70-CB79-4D2C-B675-CAD9E66904F2}"
+	ProjectSection(SolutionItems) = preProject
+		faq\index.rst = faq\index.rst
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -9,5 +9,6 @@ Exrin is a Xamarin Forms Framework designed to enable teams to develop consisten
    :maxdepth: 3
 
    getting-started/index.rst
+   faq/index.rst
    unit-testing/index.rst
 
