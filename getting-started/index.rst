@@ -308,7 +308,7 @@ From here we are finally at a point where we will put our line of code in the Ap
     }
 	
 IViewModelExecute
-=================
+-----------------
 
 In order to add functionality to your ViewModel, Exrin requires that you use the IViewModelExecute for any Commands. As in the example below you will see the command for when a key is pressed on the Pin Screen in our sample app. It contains nothing more than glue code to connect to the appropriate IViewModelExecute.
 
@@ -340,7 +340,7 @@ You need to create the class PinLoginViewModelExecute, which houses the numerous
 Next you need to create an IOperation to add to the operations lists. This allows you define the Operation and optional rollback function.
 
 IModelExecute
-=============
+-------------
 
 Exrin optionally allows you to wrap each model function in an IModelExecute to handle model wide the Timeout and Error handling.
 
@@ -373,9 +373,9 @@ Next you need to create your ModelExecute class that inherits from : IModelExecu
     }
 
 Nesting Files
-=============
+-------------
 Due to the need for more classes than usual with this approach it is recommended you nest your files using Visual Studio's DependantUpon tag. Because Visual Studio doesn't have an inbuilt way to manage this, using the extension () is recommended.
 
 Summary
-=======
+-------
 Be sure to look at Unit Testing next to see the benefits of the IViewModelExecute and IModelExecute setup.
