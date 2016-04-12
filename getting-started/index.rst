@@ -80,13 +80,14 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
 
 .. sourcecode:: csharp
 
-    public class NavigationContainer : INavigationPage
+    public class NavigationContainer : INavigationContainer
     {
 
         private readonly NavigationPage _page = null;
-        public event EventHandler<IPageNavigationArgs> OnPopped;
+        public event EventHandler<IViewNavigationArgs> OnPopped;
         private Queue<object> _argQueue = new Queue<object>();
         private AsyncLock _lock = new AsyncLock();
+        public string CurrentViewKey { get; set; }
 
         public NavigationContainer(NavigationPage page)
         {
@@ -98,10 +99,10 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
         {
             if (OnPopped != null)
             {
-                var poppedPage = e.Page as IPage;
-                var currentPage = _page.CurrentPage as IPage;
+                var poppedPage = e.Page as IView;
+                var currentPage = _page.CurrentPage as IView;
                 var parameter = _argQueue.Count > 0 ? _argQueue.Dequeue() : null;
-                OnPopped(this, new PageNavigationArgs() { Parameter = parameter, CurrentPage = currentPage, PoppedPage = poppedPage });
+                OnPopped(this, new ViewNavigationArgs() { Parameter = parameter, CurrentView = currentPage, PoppedView = poppedPage });
             }
         }
 
@@ -112,7 +113,7 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
                 NavigationPage.SetHasNavigationBar(bindableObject, isVisible);
         }
 
-        public object Page { get { return _page; } }
+        public object View { get { return _page; } }
 
         public bool CanGoBack()
         {
@@ -138,38 +139,41 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
 
         public async Task PushAsync(object page)
         {
-            await ThreadHelper.RunOnUIThreadAsync(async () =>
+            using (var releaser = await _lock.LockAsync())
             {
-                var xamarinPage = page as Page;
+                await ThreadHelper.RunOnUIThreadAsync(async () =>
+                {
+                    var xamarinPage = page as Page;
 
-                if (xamarinPage == null)
-                    throw new Exception("PushAsync can not push a non Xamarin Page");
+                    if (xamarinPage == null)
+                        throw new Exception("PushAsync can not push a non Xamarin Page");
 
-                await _page.PushAsync(xamarinPage); // Must be run on the Main Thread
-            });
+                    await _page.PushAsync(xamarinPage); // Must be run on the Main Thread
+                });
+            }
         }
     }
 
-Pages
+Views
 -----
 
-All pages in this framework must implement IPage. It is recommended that all your pages inherit from a single BasePage as per the example.
+All views (or pages) in this framework must implement IView (or IMultiView if a TabbedPage). It is recommended that all your pages inherit from a single BasePage as per the example.
 
 .. sourcecode:: csharp
 
-    public partial class BasePage : ContentPage, IPage
+    public partial class BaseView : ContentPage, IView
     {
-        public BasePage()
+        public BaseView()
         {
             InitializeComponent();
         }      
     }
 
-When creating your pages you will find it easier to refer to if you create an enum of them. We do this to separate the actual type or implementation of the page to a key used for navigating to it.
+When creating your views you will find it easier to refer to if you create an enum of them. We do this to separate the actual type or implementation of the page to a key used for navigating to it.
 
 .. sourcecode:: csharp
 
-	namespace Mobile.PageLocator
+	namespace Mobile.ViewLocator
 	{
 		public enum Authentication
 		{
@@ -186,14 +190,14 @@ When creating your pages you will find it easier to refer to if you create an en
 Models
 ------
 
-In the MVVM pattern, Models are there to host the business logic, data gathering and state recording. We will look into actually performing an action in the Model later, right now we just need to set it up. We recommend you setup a Base Model as per the example below.
+In the MVVM pattern, Models are there to host the business logic (behavior) and state. We will look into actually performing an action in the Model later, right now we just need to set it up. We recommend you setup a Base Model as per the example below.
 
 .. sourcecode:: csharp
 
     public class BaseModel: Exrin.Framework.Model
     {
-        public BaseModel(IDisplayService displayService, IErrorHandlingService errorHandlingService)
-            :base(displayService, errorHandlingService)
+        public BaseModel(IDisplayService displayService, IErrorHandlingService errorHandlingService, IModelState modelState)
+            :base(displayService, errorHandlingService, modelState)
         {           
         }
     }
@@ -211,10 +215,11 @@ Setting up a base View Model is recommended and it will need to have some object
     public class BaseViewModel : Exrin.Framework.ViewModel
     {        
         public BaseViewModel(IDisplayService displayService, INavigationService navigationService, 
-            IErrorHandlingService errorHandlingService, IStackRunner stackRunner)
-             : base(displayService, navigationService, errorHandlingService, stackRunner)
+            IErrorHandlingService errorHandlingService, IStackRunner stackRunner, IVisualState visualState)
+             : base(displayService, navigationService, errorHandlingService, stackRunner, visualState)
         {  
         }
+        
     }
 
 Stacks
@@ -228,31 +233,22 @@ In the stack you must inherit from BaseStack, then Map the ViewModels, Views and
 
     public class AuthenticationStack : BaseStack
     {
-        IPageService _pageService = null;
-
-        public AuthenticationStack(INavigationService navigationService, IPageService pageService)
-            : base(navigationService)
+        public AuthenticationStack(INavigationService navigationService)
+            : base(navigationService, new NavigationContainer(new NavigationPage()), Stacks.Authentication)
         {
-            _pageService = pageService;
-            SetContainer(new NavigationContainer(new NavigationPage()));
             ShowNavigationBar = false;
         }
 
-        protected override void MapPages()
+        protected override void Map()
         {
-            _navigationService.Map(nameof(PageLocator.Authentication.Pin), typeof(PinPage));
+            _navigationService.Map(nameof(Authentication.Pin), typeof(PinPage), typeof(PinViewModel));
         }
 
-        protected override void MapViewModels()
-        {
-            _pageService.Map(typeof(PinPage), typeof(PinViewModel));
-        }
-
-        protected override string NavigationStartPageKey
+        protected override string NavigationStartKey
         {
             get
             {
-                return nameof(PageLocator.Authentication.Pin);
+                return nameof(Authentication.Pin);
             }
         }
     }
@@ -279,21 +275,15 @@ In the base constructor you will see this is where we send the instatiated Injec
 
     public class Bootstrapper : Exrin.Framework.Bootstrapper
     {
-        public Bootstrapper() : base(new Injection(), (newPage) => { Application.Current.MainPage = newPage as Page; }) { }
+        public Bootstrapper() : base(new Injection(), (newView) => { Application.Current.MainPage = newView as Page; }) { }
 
-        protected override void InitStacks()
-        {          
-            RegisterStack<AuthenticationStack>(Stacks.Authentication);
-            RegisterStack<MainStack>(Stacks.Main);
-        }
+        // Any interface that implements IBaseModel will be loaded in InitModels() with its concrete implementation
+        // Override InitModels() to define yourself
 
-        protected override void InitModels()
-        {
-            _injection.Register<IPinModel, PinModel>();
-            _injection.Register<IMainModel, MainModel>();
-        }
+        // Any interface that implements IStack will be loaded in the InitStacks().
+        // Override InitStacks() and use RegisterStack<T>() to register stacks manually
+
     }
-
 
 Launching the App
 -----------------
