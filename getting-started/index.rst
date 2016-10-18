@@ -4,7 +4,7 @@ Getting Started
 Install Nuget Package
 ---------------------
 
-Search for Exrin in Nuget and install into the Native Project and the common PCL.
+Search for `Exrin <https://www.nuget.org/packages/Exrin>`_ in Nuget and install into the Native Project and the common PCL.
 
 Initialize Framework
 --------------------
@@ -17,79 +17,128 @@ In your native project, after the Xamarin Forms Init, add in the following code
 
 This sets up your project and you are now free to use whatever parts of Exrin you want. If you want to run your entire project on the Exrin Framework, follow all the details below.
 
-Wire Up
+Proxies
 -------
 
-In order for Exrin to avoid dependencies on your platform or other packages it creates what we call a wire up to connect Exrin to your projects dependencies.
+In order for Exrin to avoid dependencies on your platform or other packages it creates what we call a proxy to connect Exrin to Xamarin Forms. This allows Exrin to stay independent from Xamarin Forms.
 
 Injection
 ~~~~~~~~~
 
-Dependency injection is a major part of Exrin and we wanted you to choose your favorite framework. This is where we wire up your Dependency Injection framework to Exrin.
+Dependency injection is a major part of Exrin and we wanted you to choose your favorite framework. This is where we proxy your Dependency Injection framework to Exrin.
 
-A well known DI Framework is AutoFac, which will be used in this example. As per the example below, create a Folder in your project of Wire, then a class called Injection that implements IInjection.
+A well known DI Framework is AutoFac, which will be used in this example. As per the example below, create a Folder in your project of Proxy, then a class called Injection that implements IInjectionProxy.
 
-**Important Note:** In the Init() method, you must inject IInjection into itself. We call it Injection Inception and its as confusing as its sounds. We are looking at ways to simplify this.
+**Important Note:** In the Init() method, you must inject IInjectionProxy into itself. I call this Injection Inception.
 
 .. sourcecode:: csharp
 
-	public class Injection: IInjection
-	{
+    public class Injection : IInjectionProxy
+    {
+        private static ContainerBuilder _builder = null;
+        private static IContainer Container { get; set; } = null;
+        private static IList<Type> _registered = new List<Type>();
 
-		private static ContainerBuilder _builder = null;
-		private static IContainer Container { get; set; } = null;
+        public void Init()
+        {
+            if (_builder == null)
+            {
+                _builder = new ContainerBuilder();
 
-		public void Init()
-		{
-			_builder = new ContainerBuilder();
+                _builder.RegisterInstance<IInjectionProxy>(this).SingleInstance();
+            }
+        }
+        public void Complete()
+        {
+            if (Container == null)
+                Container = _builder.Build();
+        }
+        private void Register<T>(IRegistrationBuilder<T, IConcreteActivatorData, SingleRegistrationStyle> register, InstanceType type)
+        {
+            switch (type)
+            {
+                case InstanceType.EachResolve:
+                    register.InstancePerDependency();
+                    break;
+                case InstanceType.SingleInstance:
+                    register.SingleInstance();
+                    break;
+                default:
+                    register.InstancePerDependency();
+                    break;
+            }
+        }
+        public void Register<T>(InstanceType type) where T : class
+        {
+            Register(_builder.RegisterType<T>(), type);
+            _registered.Add(typeof(T));
+        }
 
-			_builder.RegisterInstance<IInjection>(this).SingleInstance();
-		}
+        public void RegisterInterface<I, T>(InstanceType type) where T : class, I
+                                             where I : class
+        {
+            Register(_builder.RegisterType<T>().As<I>(), type);         
+            _registered.Add(typeof(I));
+        }
 
-		public void Complete()
-		{
-			Container = _builder.Build();
-		}
+        public void RegisterInstance<I, T>(T instance) where T : class, I
+                                             where I : class
+        {
+            _builder.RegisterInstance<T>(instance).As<I>().SingleInstance();
+            _registered.Add(typeof(I));
+        }
 
-		public void Register<T>() where T : class
-		{
-			_builder.RegisterType<T>().SingleInstance();
-		}
-
-		public void Register<I, T>() where T : class, I	where I : class
-		{
-			_builder.RegisterType<T>().As<I>().SingleInstance();
-		}
-        
-		public T Get<T>() where T : class
-		{
-			return Container.Resolve<T>();
-		}
-
-		public object Get(Type type)
-		{
-			return Container.Resolve(type);
-		}
-	}
+        public void RegisterInstance<I>(I instance) where I : class
+        {
+            _builder.RegisterInstance(instance).As<I>().SingleInstance();
+            _registered.Add(typeof(I));
+        }
 
 
-Navigation Container
+        public T Get<T>(bool optional = false) where T : class
+        {
+            if (Container == null)
+                throw new NullReferenceException($"{nameof(Container)} is null. Have you called {nameof(IInjectionProxy)}.{nameof(Init)}() and {nameof(IInjectionProxy)}.{nameof(Complete)}()?");
+
+            if (optional)
+                if (!Container.IsRegistered<T>())
+                    return null;
+
+            return Container.Resolve<T>();
+        }
+
+        public object Get(Type type)
+        {
+            if (Container == null)
+                throw new NullReferenceException($"{nameof(Container)} is null. Have you called {nameof(IInjectionProxy)}.{nameof(Init)}() and {nameof(IInjectionProxy)}.{nameof(Complete)}()?");
+            return Container.Resolve(type);
+        }
+
+        public bool IsRegistered<T>()
+        {
+            return _registered.Contains(typeof(T));
+        }
+
+
+    }
+
+
+Navigation Proxy
 ~~~~~~~~~~~~~~~~~~~~
 
-The navigation container wires up the Navigation Page for Exrin. This allows Exrin to not be dependant upon any Xamarin Forms version. You must implement the INavigationPage and an example is below.
+The INavigationProxy proxies the Navigation Page for Exrin. This allows Exrin to not be dependant upon any Xamarin Forms version. You must implement INavigationProxy as shown in the example below.
 
 .. sourcecode:: csharp
 
-    public class NavigationContainer : INavigationContainer
+    public class NavigationProxy : Exrin.Abstraction.INavigationProxy
     {
 
-        private readonly NavigationPage _page = null;
+        private NavigationPage _page = null;
         public event EventHandler<IViewNavigationArgs> OnPopped;
         private Queue<object> _argQueue = new Queue<object>();
-        private AsyncLock _lock = new AsyncLock();
-        public string CurrentViewKey { get; set; }
+        public VisualStatus ViewStatus { get; set; } = VisualStatus.Unseen;
 
-        public NavigationContainer(NavigationPage page)
+        public NavigationProxy(NavigationPage page)
         {
             _page = page;
             _page.Popped += _page_Popped;
@@ -113,7 +162,7 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
                 NavigationPage.SetHasNavigationBar(bindableObject, isVisible);
         }
 
-        public object View { get { return _page; } }
+        public object NativeView { get { return _page; } }
 
         public bool CanGoBack()
         {
@@ -122,70 +171,81 @@ The navigation container wires up the Navigation Page for Exrin. This allows Exr
 
         public async Task PopAsync(object parameter)
         {
-            using (var releaser = await _lock.LockAsync())
-            {
-                _argQueue.Enqueue(parameter);
-                await _page.PopAsync();
-            }
+            _argQueue.Enqueue(parameter);
+            await _page.PopAsync();
         }
 
         public async Task PopAsync()
         {
-            using (var releaser = await _lock.LockAsync())
-            {
-                await _page.PopAsync();
-            }
+            await _page.PopAsync();
         }
 
         public async Task PushAsync(object page)
         {
-            using (var releaser = await _lock.LockAsync())
+            var xamarinPage = page as Page;
+
+            if (xamarinPage == null)
+                throw new Exception("PushAsync can not push a non Xamarin Page");
+
+            await _page.PushAsync(xamarinPage);
+        }
+
+        public async Task ShowDialog(IDialogOptions dialogOptions)
+        {
+            if (ViewStatus == VisualStatus.Visible)
             {
-                await ThreadHelper.RunOnUIThreadAsync(async () =>
-                {
-                    var xamarinPage = page as Page;
-
-                    if (xamarinPage == null)
-                        throw new Exception("PushAsync can not push a non Xamarin Page");
-
-                    await _page.PushAsync(xamarinPage); // Must be run on the Main Thread
-                });
+                await _page.DisplayAlert(dialogOptions.Title, dialogOptions.Message, "OK");
+                dialogOptions.Result = true;
             }
+            else
+            {
+                throw new Exception("You can not call ShowDialog on a non-visible page");
+            }
+        }
+
+        public Task ClearAsync()
+        {
+            _page = new NavigationPage();
+            return Task.FromResult(true);
+        }
+
+        public Task SilentPopAsync(int indexFromTop)
+        {
+            _page.Navigation.RemovePage(_page.Navigation.NavigationStack[_page.Navigation.NavigationStack.Count - indexFromTop - 1]);
+            return Task.FromResult(true);
         }
     }
 
 Views
 -----
 
-All views (or pages) in this framework must implement IView (or IMultiView if a TabbedPage). It is recommended that all your pages inherit from a single BasePage as per the example.
+All views (aka pages) in this framework must implement IView. It is recommended that all your pages inherit from a single BasePage as per the example.
+
+.. sourcecode:: xaml
+
+    <?xml version="1.0" encoding="utf-8" ?>
+    <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                 x:Class="Mobile.Base.BaseView">
+    </ContentPage>
 
 .. sourcecode:: csharp
 
-    public partial class BaseView : ContentPage, IView
+    public partial class BaseView : ContentPage, Exrin.Abstraction.IView
     {
         public BaseView()
         {
             InitializeComponent();
         }      
+
+		protected override bool OnBackButtonPressed()
+        {
+            return ((Exrin.Abstraction.IView)this).OnBackButtonPressed();
+        }
+
+        Func<bool> Exrin.Abstraction.IView.OnBackButtonPressed { get; set; }
     }
 
-When creating your views you will find it easier to refer to if you create an enum of them. We do this to separate the actual type or implementation of the page to a key used for navigating to it.
-
-.. sourcecode:: csharp
-
-	namespace Mobile.ViewLocator
-	{
-		public enum Authentication
-		{
-			Pin = 0
-		}
-
-		public enum Main
-		{
-			Main = 0
-		}
-	}
-	
 
 Models
 ------
@@ -194,11 +254,11 @@ In the MVVM pattern, Models are there to host the business logic (behavior) and 
 
 .. sourcecode:: csharp
 
-    public class BaseModel: Exrin.Framework.Model
+    public class BaseModel : Exrin.Framework.Model
     {
-        public BaseModel(IDisplayService displayService, IErrorHandlingService errorHandlingService, IModelState modelState)
-            :base(displayService, errorHandlingService, modelState)
-        {           
+        public BaseModel(IExrinContainer exrinContainer, IModelState modelState) 
+            : base(exrinContainer, modelState)
+        {
         }
     }
 
@@ -213,44 +273,57 @@ Setting up a base View Model is recommended and it will need to have some object
 .. sourcecode:: csharp
 	
     public class BaseViewModel : Exrin.Framework.ViewModel
-    {        
-        public BaseViewModel(IDisplayService displayService, INavigationService navigationService, 
-            IErrorHandlingService errorHandlingService, IStackRunner stackRunner, IVisualState visualState)
-             : base(displayService, navigationService, errorHandlingService, stackRunner, visualState)
-        {  
+    {
+        public BaseViewModel(IAuthModel authModel, IExrinContainer exrinContainer, 
+                             IVisualState visualState, string caller = nameof(BaseViewModel))
+                             : base(exrinContainer, visualState, caller)
+	    {
+		}
+	}
+
+View Containers
+---------------
+
+View Containers are there to describe your high level visual setup, for example if you have a Navigation, TabbedPage or MasterDetailPage.
+
+.. sourcecode:: csharp
+
+    public class AuthenticationViewContainer : Exrin.Framework.ViewContainer, ISingleContainer
+    {
+
+        public AuthenticationViewContainer(AuthenticationStack stack)
+								:base(ViewContainers.Authentication.ToString(), stack.Proxy.NativeView)
+        {
+            Stack = stack;
         }
-        
+
+        public IStack Stack { get; set; }
+     
     }
+
+This simple example shows a SingleContainer, which is essentially an empty container. You define the stack you want assigned to this view container.
 
 Stacks
 ------
 
-Stacks are referring to Navigation Stacks. Rather than having modal navigation stacks, we have the ability to create a stack that houses numerous related pages. The most common example for this is an authentication stack and a main stack. One for login, the other as your main app. Some apps only need these 2, others may require several. Exrin has no restrictions on the amount of stacks you can have.
+Stacks are referring to Navigation Stacks. A stack is a container that holds a number of views that you can navigate between. The most common example for this is an authentication stack and a main stack. One for login, the other as your main app. Some apps only need these 2, others may require several. Exrin has no restrictions on the amount of stacks you can have.
 
 In the stack you must inherit from BaseStack, then Map the ViewModels, Views and Keys to each other. You must also set the default starting page of the stack.
 
+When creating your views you will find it easier to refer to if you create an enum of them. We do this to separate the actual type or implementation of the page to a key used for navigating to it.
+
 .. sourcecode:: csharp
 
-    public class AuthenticationStack : BaseStack
+	public enum Authentication
     {
-        public AuthenticationStack(INavigationService navigationService)
-            : base(navigationService, new NavigationContainer(new NavigationPage()), Stacks.Authentication)
-        {
-            ShowNavigationBar = false;
-        }
+        Login,
+        Pin
+    }
 
-        protected override void Map()
-        {
-            _navigationService.Map(nameof(Authentication.Pin), typeof(PinPage), typeof(PinViewModel));
-        }
-
-        protected override string NavigationStartKey
-        {
-            get
-            {
-                return nameof(Authentication.Pin);
-            }
-        }
+    public enum Main
+    {
+        Main,
+		About
     }
 
 At this point we also need to create an enum of the Stacks we are creating to enable us to switch between them later.
@@ -259,15 +332,39 @@ At this point we also need to create an enum of the Stacks we are creating to en
 
     public enum Stacks
     {
-        Authentication = 0,
-        Main = 1
+        Authentication,
+        Main
+    }
+
+.. sourcecode:: csharp
+
+    public class AuthenticationStack : BaseStack
+    {
+        public AuthenticationStack(IViewService viewService)
+            : base(new NavigationProxy(new NavigationPage()), viewService, Stacks.Authentication)
+        {
+            ShowNavigationBar = false;
+        }
+        protected override void Map()
+        {
+            base.NavigationMap<PinView, PinViewModel>(nameof(Authentication.Pin));
+            base.NavigationMap<LoginView, LoginViewModel>(nameof(Authentication.Login));
+        }
+
+        public override string NavigationStartKey
+        {
+            get
+            {
+                return nameof(Authentication.Login);
+            }
+        }
     }
 
 
 Bootstrapper
 ------------
 
-The last part is bringing it all together in the bootstrapper. Inherit from Exrin.Framework.Bootstrapper and override the InitStacks and InitModels to register or inject what you have setup.
+Inherit from Exrin.Framework.Bootstrapper and override the InitStacks and InitModels to register or inject what you have setup.
 
 In the base constructor you will see this is where we send the instatiated Injection object and an Action that assigns a page to the MainPage in Xamarin Forms.
 
@@ -275,15 +372,12 @@ In the base constructor you will see this is where we send the instatiated Injec
 
     public class Bootstrapper : Exrin.Framework.Bootstrapper
     {
-        public Bootstrapper() : base(new Injection(), (newView) => { Application.Current.MainPage = newView as Page; }) { }
-
-        // Any interface that implements IBaseModel will be loaded in InitModels() with its concrete implementation
-        // Override InitModels() to define yourself
-
-        // Any interface that implements IStack will be loaded in the InitStacks().
-        // Override InitStacks() and use RegisterStack<T>() to register stacks manually
+        public Bootstrapper() : base(new InjectionProxy(), 
+									 (newView) => { Application.Current.MainPage = newView as Page; }) { }
 
     }
+
+The bootstrapper will then build the container in the injection framework and connect all the Views, ViewModels, Models, Stacks and ViewHierarchies.
 
 Launching the App
 -----------------
@@ -294,7 +388,7 @@ From here we are finally at a point where we will put our line of code in the Ap
 
     public App()
     {
-        new Bootstrapper().Init().Get<IStackRunner>().Run(Mobile.Stacks.Authentication);
+        new Bootstrapper().Init().Get<INavigationService>().Navigate(new StackOptions() { StackChoice = Stacks.Authentication });
     }
 	
 IViewModelExecute
