@@ -119,7 +119,6 @@ A well known DI Framework is AutoFac, which will be used in this example. As per
             return _registered.Contains(typeof(T));
         }
 
-
     }
 
 
@@ -391,69 +390,58 @@ From here we are finally at a point where we will put our line of code in the Ap
         new Bootstrapper().Init().Get<INavigationService>().Navigate(new StackOptions() { StackChoice = Stacks.Authentication });
     }
 	
-IViewModelExecute
+IOperation
 -----------------
 
 In order to add functionality to your ViewModel, Exrin requires that you use the IViewModelExecute for any Commands. As in the example below you will see the command for when a key is pressed on the Pin Screen in our sample app. It contains nothing more than glue code to connect to the appropriate IViewModelExecute.
 
 .. sourcecode:: csharp
 
-    private IRelayCommand _keyPressCommand = null;
-    public IRelayCommand KeyPressCommand
+    public IRelayCommand LoginCommand
     {
         get
         {
-            return _keyPressCommand ??
-                    (Execution.ViewModelExecute(new PinLoginViewModelExecute(Model, Keypad.BackCharacter)));
-        }
-    }
-
-You need to create the class PinLoginViewModelExecute, which houses the numerous operations and timeout setting for the operations.
-
-.. sourcecode:: csharp
-
-    public class PinLoginViewModelExecute : BaseViewModelExecute 
-    {
-        public PinLoginViewModelExecute(IPinModel model, string backCharacter)
-        {
-            TimeoutMilliseconds = 10000;
-            Operations.Add(new PinLoginOperation(model, backCharacter));
-        }
-    }
-
-Next you need to create an IOperation to add to the operations lists. This allows you define the Operation and optional rollback function.
-
-IModelExecute
--------------
-
-Exrin optionally allows you to wrap each model function in an IModelExecute to handle model wide the Timeout and Error handling.
-
-.. sourcecode:: csharp
-
-    public Task<bool> IsPinValid()
-	{
-		return Execution.ModelExecute(new IsPinValidModelExecute(Pin));
-	}
-
-Next you need to create your ModelExecute class that inherits from : IModelExecute<T> with T being the return type of the function. Then define the operation as per the example below.
-
-.. sourcecode:: csharp
-
-    public IOperation<bool> Operation
-    {
-        get
-        {
-            return new Operation<bool>()
-            {
-                Function = () =>
+            return GetCommand(() =>
                 {
-                    if (_pin.Length == 4)
-                        return Task.FromResult(true);
-                    else
-                        return Task.FromResult(false);
-                }
-            };
+                    return Execution.ViewModelExecute(new LoginOperation(model)); // Pass the instance of your model through to use
+                });
         }
+    }
+
+You need to create the class LoginOperation, which keeps the logic for the operation, separating it for each unit testability.
+
+.. sourcecode:: csharp
+
+    public class LoginOperation : IOperation
+    {
+        private readonly IAuthModel _authModel;
+
+        public LoginOperation(IAuthModel authModel)
+        {
+            _authModel = authModel;
+        }
+
+        public Func<IList<IResult>, object, CancellationToken, Task> Function
+        {
+            get
+            {
+                return async (results, parameter, token) =>
+                {
+                    Result result = null;
+
+                    if (await _authModel.Login())
+                        result = new Result() { ResultAction = ResultType.Navigation, Arguments = new NavigationArgs() { Key = Main.Main, StackType = Stack.Main } };
+                    else
+                        result = new Result() { ResultAction = ResultType.Display, Arguments = new DisplayArgs() { Message = "Login was unsuccessful" } };
+                    
+                    results.Add(result);
+                };
+            }
+        }
+
+        public bool ChainedRollback { get; private set; } = false;
+
+        public Func<Task> Rollback { get { return null; } }
     }
 
 Nesting Files

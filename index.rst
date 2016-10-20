@@ -18,6 +18,4 @@ There are no dependencies on Xamarin Forms, hence this will work with any versio
    :maxdepth: 3
 
    getting-started/index.rst
-   faq/index.rst
-   unit-testing/index.rst
 

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{90A049A1-1CB3-40DB-8B51-151911BD02F3}"
 	ProjectSection(SolutionItems) = preProject
@@ -16,14 +16,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "getting-started", "getting-
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "unit-testing", "unit-testing", "{A80F7349-4BB8-4084-8B1D-DCA7A27B8179}"
-	ProjectSection(SolutionItems) = preProject
-		unit-testing\index.rst = unit-testing\index.rst
-	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "faq", "faq", "{5756DF70-CB79-4D2C-B675-CAD9E66904F2}"
-	ProjectSection(SolutionItems) = preProject
-		faq\index.rst = faq\index.rst
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionProperties) = preSolution

@@ -1,37 +1,28 @@
 Frequently Asked Questions
 ==========================
 
-Injection Platform Specific Dependencies
+Inject Platform Specific Dependencies
 ----------------------------------------
-In all of the samples given of Exrin, you will noticed that the IInjection class is instantiated within the Bootstrapper class, which is in the PCL. 
+In all of the samples given of Exrin, you will noticed that the IInjectionProxy class is instantiated within the Bootstrapper class, which is in the PCL. 
 
-To injection platform specific dependencies you need to push the instantiation of the IInjection class up to the platform and pass it as an instance down into the bootstrapper.
+To injection platform specific dependencies you need to push the instantiation of the IInjectionProxy class up to the platform and pass it as an instance down into the bootstrapper.
 
 .. sourcecode:: csharp
 
-    public sealed partial class MainPage
-    {
-        public MainPage()
-        {
-            this.InitializeComponent();
+    // In the native project
+    injection.Register<InterfaceType, InstanceType>();
 
-			IInjection injection = new Injection();
+    LoadApplication(new App(injection));
 
-	        injection.Register<InterfaceType, InstanceType>();
-
-            LoadApplication(new App(injection));
-        }
-    }
     
 
 .. sourcecode:: csharp
 
     public class App : Application
     {
-
         public App(IInjection injection)
         {
-           new Bootstrapper(injection).Init().Get<IStackRunner>().Run(Stacks.Authentication);
+           new Bootstrapper(injection).Init();
         }
 
 .. sourcecode:: csharp
